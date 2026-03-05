@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Team - AI Proposal Writer</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+
+h1 { text-align: center; font-size: 1.8rem; margin: 30px 0 10px; color: #f1f5f9; }
+.subtitle { text-align: center; color: #94a3b8; margin-bottom: 40px; font-size: 0.95rem; }
+
+/* Pipeline Steps */
+.pipeline { display: flex; gap: 8px; margin-bottom: 30px; justify-content: center; flex-wrap: wrap; }
+.step-badge {
+  padding: 8px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+  background: #1e293b; color: #64748b; border: 1px solid #334155; transition: all 0.3s;
+}
+.step-badge.active { background: #1d4ed8; color: #fff; border-color: #3b82f6; }
+.step-badge.done { background: #065f46; color: #6ee7b7; border-color: #10b981; }
+
+/* Cards */
+.card {
+  background: #1e293b; border-radius: 12px; padding: 28px; margin-bottom: 20px;
+  border: 1px solid #334155; display: none;
+}
+.card.visible { display: block; }
+.card h2 { font-size: 1.15rem; color: #f8fafc; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+.card h2 .icon { font-size: 1.3rem; }
+
+/* API Key */
+.api-key-row { display: flex; gap: 10px; }
+.api-key-row input {
+  flex: 1; padding: 10px 14px; background: #0f172a; border: 1px solid #475569;
+  border-radius: 8px; color: #e2e8f0; font-size: 0.95rem;
+}
+.api-key-row input:focus { outline: none; border-color: #3b82f6; }
+
+/* Buttons */
+.btn {
+  padding: 10px 22px; border: none; border-radius: 8px; font-size: 0.9rem;
+  font-weight: 600; cursor: pointer; transition: all 0.2s;
+}
+.btn-primary { background: #2563eb; color: #fff; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-primary:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+.btn-success { background: #059669; color: #fff; }
+.btn-success:hover { background: #047857; }
+
+/* File upload */
+.upload-area {
+  border: 2px dashed #475569; border-radius: 10px; padding: 40px; text-align: center;
+  cursor: pointer; transition: all 0.2s; position: relative;
+}
+.upload-area:hover { border-color: #3b82f6; background: rgba(37, 99, 235, 0.05); }
+.upload-area input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.upload-area p { color: #94a3b8; margin-top: 8px; font-size: 0.9rem; }
+.upload-area .upload-icon { font-size: 2.5rem; color: #64748b; }
+
+/* Textarea */
+textarea {
+  width: 100%; min-height: 150px; padding: 14px; background: #0f172a;
+  border: 1px solid #475569; border-radius: 8px; color: #e2e8f0;
+  font-size: 0.95rem; font-family: inherit; resize: vertical;
+}
+textarea:focus { outline: none; border-color: #3b82f6; }
+
+/* Result display */
+.result-box {
+  background: #0f172a; border: 1px solid #334155; border-radius: 8px;
+  padding: 20px; margin-top: 12px; white-space: pre-wrap; line-height: 1.7;
+  font-size: 0.92rem; max-height: 500px; overflow-y: auto;
+}
+
+/* Spinner */
+.spinner {
+  display: none; align-items: center; gap: 10px; margin-top: 12px; color: #94a3b8;
+}
+.spinner.show { display: flex; }
+.spinner .dot {
+  width: 8px; height: 8px; background: #3b82f6; border-radius: 50%;
+  animation: pulse 1.2s infinite;
+}
+.spinner .dot:nth-child(2) { animation-delay: 0.2s; }
+.spinner .dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes pulse {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.2); }
+}
+
+/* Final download */
+.final-actions { display: flex; gap: 10px; margin-top: 16px; }
+
+label { display: block; margin-bottom: 6px; color: #94a3b8; font-size: 0.85rem; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Agent Team</h1>
+  <p class="subtitle">AI Proposal Writer &mdash; 5-Agent Pipeline</p>
+
+  <div class="pipeline">
+    <span class="step-badge active" id="badge-0">1. API Key</span>
+    <span class="step-badge" id="badge-1">2. Analyzer</span>
+    <span class="step-badge" id="badge-2">3. User Input</span>
+    <span class="step-badge" id="badge-3">4. Researcher</span>
+    <span class="step-badge" id="badge-4">5. Writer</span>
+    <span class="step-badge" id="badge-5">6. Reviewer</span>
+  </div>
+
+  <!-- Step 0: API Key -->
+  <div class="card visible" id="card-0">
+    <h2><span class="icon">&#128273;</span> Gemini API Key</h2>
+    <p style="color:#94a3b8; margin-bottom:14px; font-size:0.9rem;">Google AI Studio에서 발급받은 API 키를 입력하세요. 키는 서버 메모리에만 임시 저장됩니다.</p>
+    <div class="api-key-row">
+      <input type="password" id="apiKeyInput" placeholder="AIza...">
+      <button class="btn btn-primary" onclick="setApiKey()">확인</button>
+    </div>
+  </div>
+
+  <!-- Step 1: Upload & Analyze -->
+  <div class="card" id="card-1">
+    <h2><span class="icon">&#128269;</span> Step 1: 분석 조교 (Analyzer)</h2>
+    <p style="color:#94a3b8; margin-bottom:14px; font-size:0.9rem;">제안서 템플릿 파일을 업로드하세요 (.txt, .md, .html, .docx 등 텍스트 파일)</p>
+    <div class="upload-area" id="uploadArea">
+      <input type="file" id="fileInput" accept=".txt,.md,.html,.csv,.json,.docx,.hwp">
+      <div class="upload-icon">&#128196;</div>
+      <p>파일을 여기에 드래그하거나 클릭하여 선택</p>
+    </div>
+    <div class="spinner" id="spinner-1">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span>분석 조교가 제안서를 분석하고 있습니다...</span>
+    </div>
+    <div class="result-box" id="result-1" style="display:none;"></div>
+  </div>
+
+  <!-- Step 2: User Answers -->
+  <div class="card" id="card-2">
+    <h2><span class="icon">&#9997;</span> Step 2: 요구사항 입력</h2>
+    <p style="color:#94a3b8; margin-bottom:14px; font-size:0.9rem;">분석 조교의 질문에 답변해주세요.</p>
+    <label for="answer1">(1) 제안서의 주제/프로젝트명</label>
+    <textarea id="answer1" rows="2" placeholder="예: AI 기반 고객 서비스 자동화 프로젝트"></textarea>
+    <br><br>
+    <label for="answer2">(2) 각 섹션에 넣고 싶은 내용 (키워드/방향)</label>
+    <textarea id="answer2" rows="3" placeholder="예: 배경 - 현재 CS 문제점, 솔루션 - 챗봇 + RAG, 기대효과 - 비용 절감 30%"></textarea>
+    <br><br>
+    <label for="answer3">(3) 특별히 강조하고 싶은 포인트</label>
+    <textarea id="answer3" rows="2" placeholder="예: ROI가 높다는 점, 기존 시스템과의 호환성"></textarea>
+    <br><br>
+    <label for="answer4">(4) 참고할 자료나 URL</label>
+    <textarea id="answer4" rows="2" placeholder="예: https://example.com/report.pdf"></textarea>
+    <br><br>
+    <button class="btn btn-primary" onclick="submitAnswers()">리서치 요청서 생성</button>
+    <div class="spinner" id="spinner-2">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span>리서치 요청서를 작성하고 있습니다...</span>
+    </div>
+    <div class="result-box" id="result-2" style="display:none;"></div>
+  </div>
+
+  <!-- Step 3: Research -->
+  <div class="card" id="card-3">
+    <h2><span class="icon">&#128218;</span> Step 3: 리서치 조교 (Researcher)</h2>
+    <div class="spinner show" id="spinner-3">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span>리서치 조교가 자료를 조사하고 있습니다...</span>
+    </div>
+    <div class="result-box" id="result-3" style="display:none;"></div>
+  </div>
+
+  <!-- Step 4: Write -->
+  <div class="card" id="card-4">
+    <h2><span class="icon">&#128221;</span> Step 4: 작성 조교 (Writer)</h2>
+    <div class="spinner show" id="spinner-4">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span>작성 조교가 제안서 초고를 작성하고 있습니다...</span>
+    </div>
+    <div class="result-box" id="result-4" style="display:none;"></div>
+  </div>
+
+  <!-- Step 5: Review -->
+  <div class="card" id="card-5">
+    <h2><span class="icon">&#9989;</span> Step 5: 검토 조교 (Reviewer)</h2>
+    <div class="spinner show" id="spinner-5">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span>검토 조교가 최종 검토 중입니다...</span>
+    </div>
+    <div class="result-box" id="result-5" style="display:none;"></div>
+    <div class="final-actions" id="finalActions" style="display:none;">
+      <button class="btn btn-success" onclick="downloadResult()">&#128190; 제안서 다운로드 (.txt)</button>
+      <button class="btn btn-primary" onclick="copyResult()">&#128203; 클립보드 복사</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function setApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key) return alert('API 키를 입력하세요.');
+  fetch('/api/set-key', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({api_key: key})
+  }).then(r => r.json()).then(d => {
+    if (d.error) return alert(d.error);
+    markDone(0); showCard(1);
+  }).catch(e => alert('Error: ' + e));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const fileInput = document.getElementById('fileInput');
+  fileInput.addEventListener('change', () => {
+    if (!fileInput.files.length) return;
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    document.getElementById('uploadArea').style.display = 'none';
+    showSpinner(1);
+    fetch('/api/upload', {method:'POST', body: formData})
+      .then(r => r.json()).then(d => {
+        hideSpinner(1);
+        if (d.error) { document.getElementById('uploadArea').style.display = ''; return alert(d.error); }
+        showResult(1, d.analysis);
+        markDone(1); showCard(2);
+      }).catch(e => { hideSpinner(1); alert('Error: ' + e); });
+  });
+});
+
+function submitAnswers() {
+  const answers = [
+    '(1) 주제/프로젝트명: ' + document.getElementById('answer1').value,
+    '(2) 섹션별 내용: ' + document.getElementById('answer2').value,
+    '(3) 강조 포인트: ' + document.getElementById('answer3').value,
+    '(4) 참고 자료: ' + document.getElementById('answer4').value,
+  ].join('\n');
+  showSpinner(2);
+  fetch('/api/research-request', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({answers})
+  }).then(r => r.json()).then(d => {
+    hideSpinner(2);
+    if (d.error) return alert(d.error);
+    showResult(2, d.research_request);
+    markDone(2); showCard(3);
+    runResearch();
+  }).catch(e => { hideSpinner(2); alert('Error: ' + e); });
+}
+
+function runResearch() {
+  fetch('/api/research', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'})
+    .then(r => r.json()).then(d => {
+      hideSpinner(3);
+      if (d.error) return alert(d.error);
+      showResult(3, d.research_report);
+      markDone(3); showCard(4);
+      runWrite();
+    }).catch(e => { hideSpinner(3); alert('Error: ' + e); });
+}
+
+function runWrite() {
+  fetch('/api/write', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'})
+    .then(r => r.json()).then(d => {
+      hideSpinner(4);
+      if (d.error) return alert(d.error);
+      showResult(4, d.draft);
+      markDone(4); showCard(5);
+      runReview();
+    }).catch(e => { hideSpinner(4); alert('Error: ' + e); });
+}
+
+function runReview() {
+  fetch('/api/review', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'})
+    .then(r => r.json()).then(d => {
+      hideSpinner(5);
+      if (d.error) return alert(d.error);
+      showResult(5, d.final);
+      markDone(5);
+      document.getElementById('finalActions').style.display = 'flex';
+    }).catch(e => { hideSpinner(5); alert('Error: ' + e); });
+}
+
+function downloadResult() {
+  const text = document.getElementById('result-5').textContent;
+  const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'proposal_final.txt';
+  a.click();
+}
+
+function copyResult() {
+  const text = document.getElementById('result-5').textContent;
+  navigator.clipboard.writeText(text).then(() => alert('클립보드에 복사되었습니다.'));
+}
+
+function showCard(n) { document.getElementById('card-'+n).classList.add('visible'); document.getElementById('badge-'+n).classList.add('active'); document.getElementById('card-'+n).scrollIntoView({behavior:'smooth', block:'start'}); }
+function markDone(n) { const b = document.getElementById('badge-'+n); b.classList.remove('active'); b.classList.add('done'); }
+function showSpinner(n) { document.getElementById('spinner-'+n).classList.add('show'); }
+function hideSpinner(n) { document.getElementById('spinner-'+n).classList.remove('show'); }
+function showResult(n, text) { const el = document.getElementById('result-'+n); el.textContent = text; el.style.display = 'block'; }
+</script>
+</body>
+</html>
